@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flask App with Bootstrap</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+<body>
+    <div class="container">
+
+        <header>
+            <h1>
+                Task Manager
+            </h1>
+            <p1>
+                Manage your tasks efficiently with our application.
+            </p1>
+        </header>
+        <main>
+            <section class="tasks-section">
+                <h2>Your Tasks</h2>
+                <div class="tasks-list">
+                    <div class ="tasks-card">
+                        <div class="task-header">
+                            <h3>Task1</h3>
+                            <span class="task-status">Ongoing</span>
+                        </div>
+                        <p class="task-description">This is a sample task.</p>
+                        <p class="task-date">Created: Yesterday</p>
+                    </div>
+                    <div class ="tasks-card-completed"></div>
+                        <div class="task-header">
+                            <h3>Task1</h3>
+                            <span class="task-status">Done</span>
+                        </div>
+                        <p class="task-description">This is a sample task that is done.</p>
+                        <p class="task-date">Created: Yesterday</p>
+                    </div>
+                </div>
+                
+            </section>
+        </main>
+        <footer>
+            <p>Task Manager App</p>
+        </footer>
+    </div>

@@ -1,10 +1,11 @@
-from flask import Flask
+from flask import Flask, render_template
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "<h1>Flask is working.</h1><p>great</p>"
+    """Display homepage with tasks"""
+    return render_template('index.html')
 
 @app.route('/health')
 def health():
