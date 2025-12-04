@@ -3,14 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Task Manager</title>
+    <title>Raven</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Task Manager</h1>
-            <p>Your personal task tracking application</p>
+            <div class="header-content">
+                <div>
+                    <h1>RAVEN</h1>
+                    <p>{{ session.get('username', 'User') }}</p>
+                </div>
+                <div class="user-info">
+                    <a href="{{ url_for('logout') }}" class="btn btn-logout">LOGOUT</a>
+                </div>
+            </div>
         </header>
 
         <main>
@@ -27,70 +34,61 @@
 
             <!-- Add Task Form -->
             <section class="add-task-section">
-                <h2>Add New Task</h2>
+                <h2>NEW TASK</h2>
                 <form action="{{ url_for('add_task') }}" method="POST" class="task-form">
                     <div class="form-group">
                         <input type="text" 
                                name="title" 
-                               placeholder="Task title (required)" 
+                               placeholder="Title" 
                                maxlength="255" 
                                required>
                     </div>
                     <div class="form-group">
                         <textarea name="description" 
-                                  placeholder="Task description (optional)" 
-                                  rows="3"></textarea>
+                                  placeholder="Description" 
+                                  rows="2"></textarea>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="priority">Priority</label>
-                            <select name="priority" id="priority" aria-label="Task priority">
+                            <select name="priority" id="priority">
                                 <option value="High">High</option>
                                 <option value="Medium" selected>Medium</option>
                                 <option value="Low">Low</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="category">Category</label>
-                            <input type="text" name="category" id="category" placeholder="Work, Personal..." aria-label="Task category">
+                            <input type="text" name="category" id="category" placeholder="Category">
                         </div>
                         <div class="form-group">
-                            <label for="due_date">Due date (optional)</label>
                             <input type="datetime-local" 
                                    id="due_date" 
-                                   name="due_date" 
-                                   aria-label="Task due date">
+                                   name="due_date">
                         </div>
                     </div>
-                    <button type="submit" class="btn-primary">Add Task</button>
+                    <button type="submit" class="btn btn-primary">ADD</button>
                 </form>
             </section>
 
             <!-- Tasks List -->
             <section class="tasks-section">
                 <div class="tasks-header">
-                    <h2>Your Tasks ({{ tasks|length }})</h2>
+                    <h2>TASKS ({{ tasks|length }})</h2>
                     <form method="get" class="filters">
                         <div class="filter-row">
-                            <input type="search" name="q" placeholder="Search by title" value="{{ filters.get('q','') if filters else '' }}" aria-label="Search tasks by title">
-                            <select name="status" aria-label="Filter by status">
+                            <input type="search" name="q" placeholder="Search" value="{{ filters.get('q','') if filters else '' }}">
+                            <select name="status">
                                 {% set status = filters.get('status','all') if filters else 'all' %}
                                 <option value="all" {% if status == 'all' %}selected{% endif %}>All</option>
                                 <option value="pending" {% if status == 'pending' %}selected{% endif %}>Pending</option>
-                                <option value="completed" {% if status == 'completed' %}selected{% endif %}>Completed</option>
+                                <option value="completed" {% if status == 'completed' %}selected{% endif %}>Done</option>
                                 <option value="overdue" {% if status == 'overdue' %}selected{% endif %}>Overdue</option>
-                                <option value="today" {% if status == 'today' %}selected{% endif %}>Today</option>
                             </select>
-                            <input type="text" name="category" placeholder="Filter category" value="{{ filters.get('category','') if filters else '' }}" aria-label="Filter by category">
-                            <select name="sort" aria-label="Sort tasks">
+                            <select name="sort">
                                 {% set sort = filters.get('sort','priority_desc') if filters else 'priority_desc' %}
-                                <option value="priority_desc" {% if sort == 'priority_desc' %}selected{% endif %}>Priority: High to Low</option>
-                                <option value="priority_asc" {% if sort == 'priority_asc' %}selected{% endif %}>Priority: Low to High</option>
-                                <option value="created_desc" {% if sort == 'created_desc' %}selected{% endif %}>Newest first</option>
-                                <option value="created_asc" {% if sort == 'created_asc' %}selected{% endif %}>Oldest first</option>
+                                <option value="priority_desc" {% if sort == 'priority_desc' %}selected{% endif %}>Priority ↓</option>
+                                <option value="created_desc" {% if sort == 'created_desc' %}selected{% endif %}>Newest</option>
                             </select>
-                            <button type="submit" class="btn-secondary">Apply</button>
-                            <a class="btn-text" href="{{ url_for('home') }}">Reset</a>
+                            <button type="submit" class="btn btn-secondary">FILTER</button>
                         </div>
                     </form>
                 </div>
@@ -100,19 +98,14 @@
                         <div class="category-group">
                             <div class="category-header">
                                 <h3>{{ category }}</h3>
-                                <span class="badge">{{ cat_tasks|length }} tasks</span>
                             </div>
                             <div class="tasks-list">
                                 {% for task in cat_tasks %}
-                                <div class="task-card {% if task.completed %}completed{% endif %} {% if task.is_overdue %}overdue{% endif %}">
+                                <div class="task-card {% if task.completed %}completed{% endif %} {% if task.is_overdue %}overdue{% endif %} priority-{{ task.priority }}">
                                     <div class="task-header">
-                                        <div>
-                                            <h3>{{ task.title }}</h3>
-                                            <span class="pill priority-{{ task.priority|lower }}">{{ task.priority }}</span>
-                                            <span class="pill category">{{ task.category }}</span>
-                                        </div>
+                                        <h3>{{ task.title }}</h3>
                                         <span class="task-status">
-                                            {% if task.is_overdue %}Overdue{% elif task.completed %}Completed{% else %}Pending{% endif %}
+                                            {% if task.is_overdue %}OVERDUE{% elif task.completed %}DONE{% else %}PENDING{% endif %}
                                         </span>
                                     </div>
                                     
@@ -120,39 +113,34 @@
                                     <p class="task-description">{{ task.description }}</p>
                                     {% endif %}
                                     
-                                    <p class="task-date">
-                                        Created: 
-                                        {% if task.created_at %}{{ task.created_at.strftime('%Y-%m-%d %H:%M') }}{% else %}N/A{% endif %}
-                                    </p>
-                                    {% if task.due_date %}
-                                    <p class="task-due {% if task.is_overdue %}text-overdue{% elif task.is_due_today %}text-today{% endif %}">
-                                        Due: {{ task.due_date.strftime('%Y-%m-%d %H:%M') }}
-                                    </p>
-                                    {% endif %}
+                                    <div class="task-meta">
+                                        <span class="task-meta-item priority-badge priority-{{ task.priority }}">{{ task.priority }}</span>
+                                        {% if task.due_date %}
+                                        <span class="task-meta-item">Due: {{ task.due_date.strftime('%m/%d %H:%M') }}</span>
+                                        {% endif %}
+                                    </div>
+                                    
                                     <div class="task-actions">
-                                        <form action="{{ url_for('toggle_task', task_id=task.id) }}" method="POST" class="inline-form">
-                                            <button type="submit" class="btn-toggle">
-                                                {% if task.completed %}Mark as Pending{% else %}Mark as Completed{% endif %}
+                                        <form action="{{ url_for('toggle_task', task_id=task.id) }}" method="POST" style="display: inline;">
+                                            <button type="submit" class="btn btn-secondary">
+                                                {% if task.completed %}UNDO{% else %}DONE{% endif %}
                                             </button>
                                         </form>
-                                        <form action="{{ url_for('delete_task', task_id=task.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this task?');">
-                                            <button type="submit" class="btn-delete">Delete</button>
+                                        <form action="{{ url_for('delete_task', task_id=task.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Delete?');">
+                                            <button type="submit" class="btn btn-danger">DELETE</button>
                                         </form>
                                     </div>
                                     <details class="edit-panel">
-                                        <summary>Edit task</summary>
+                                        <summary>EDIT</summary>
                                         <form action="{{ url_for('edit_task', task_id=task.id) }}" method="POST" class="task-form">
                                             <div class="form-group">
-                                                <label>Title</label>
                                                 <input type="text" name="title" value="{{ task.title }}" required maxlength="255">
                                             </div>
                                             <div class="form-group">
-                                                <label>Description</label>
                                                 <textarea name="description" rows="2">{{ task.description }}</textarea>
                                             </div>
                                             <div class="form-row">
                                                 <div class="form-group">
-                                                    <label>Priority</label>
                                                     <select name="priority">
                                                         <option value="High" {% if task.priority == 'High' %}selected{% endif %}>High</option>
                                                         <option value="Medium" {% if task.priority == 'Medium' %}selected{% endif %}>Medium</option>
@@ -160,15 +148,13 @@
                                                     </select>
                                                 </div>
                                                 <div class="form-group">
-                                                    <label>Category</label>
                                                     <input type="text" name="category" value="{{ task.category }}">
                                                 </div>
                                                 <div class="form-group">
-                                                    <label>Due date</label>
                                                     <input type="datetime-local" name="due_date" value="{% if task.due_date %}{{ task.due_date.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
                                                 </div>
                                             </div>
-                                            <button type="submit" class="btn-secondary">Save changes</button>
+                                            <button type="submit" class="btn btn-primary">SAVE</button>
                                         </form>
                                     </details>
                                 </div>
@@ -177,14 +163,12 @@
                         </div>
                     {% endfor %}
                 {% else %}
-                    <p class="no-tasks">No tasks yet. Add your first task above!</p>
+                    <div class="empty-state">
+                        <p>NO TASKS</p>
+                    </div>
                 {% endif %}
             </section>
         </main>
-
-        <footer>
-            <p>Task Manager MVP - Cloud DevOps Project 2025</p>
-        </footer>
     </div>
 </body>
 </html>
