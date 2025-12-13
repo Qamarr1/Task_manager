@@ -1,0 +1,59 @@
+<div class="task-card {% if task.is_overdue %}is-overdue{% endif %}" data-category="{{ task.category or 'Other' }}" data-priority="{{ task.priority }}" data-status="{{ task.status }}">
+    <h4 class="task-card__title">{{ task.title }}</h4>
+
+    {% if task.description %}
+    <p class="task-card__desc">{{ task.description }}</p>
+    {% endif %}
+
+    <div class="task-card__head">
+        <div class="task-card__badges">
+            <span class="pill priority-{{ task.priority|lower }}">{{ task.priority }}</span>
+            {% if task.category %}
+            <span class="pill pill-muted">{{ task.category }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="task-card__meta">
+        {% if task.due_date %}
+        <span class="meta">Due {{ task.due_date.strftime('%b %d, %I:%M %p') }}</span>
+        {% else %}
+        <span class="meta">No due date</span>
+        {% endif %}
+    </div>
+
+    <div class="task-card__status-row">
+        {% if task.is_overdue %}
+        <span class="status-badge badge-overdue">⚠️ Overdue</span>
+        {% elif task.is_due_today %}
+        <span class="status-badge badge-today">📌 Due Today</span>
+        {% endif %}
+    </div>
+
+    <div class="task-card__footer">
+        <form action="{{ url_for('move_task', task_id=task.id) }}" method="POST" class="move-form">
+            <select name="status" onchange="this.form.submit()" aria-label="Move task">
+                <option value="">Move to...</option>
+                <option value="todo" {% if task.status == 'todo' %}disabled{% endif %}>To do</option>
+                <option value="in_progress" {% if task.status == 'in_progress' %}disabled{% endif %}>In progress</option>
+                <option value="in_review" {% if task.status == 'in_review' %}disabled{% endif %}>In review</option>
+                <option value="done" {% if task.status == 'done' %}disabled{% endif %}>Done</option>
+            </select>
+        </form>
+        <div class="task-card__actions">
+            <button type="button" class="ghost" onclick="openEditModal(this)"
+                data-id="{{ task.id }}"
+                data-title="{{ task.title|e }}"
+                data-description="{{ task.description|default('', true)|replace('\n', ' ')|e }}"
+                data-priority="{{ task.priority }}"
+                data-category="{{ task.category|default('', true)|e }}"
+                data-due="{% if task.due_date %}{{ task.due_date.strftime('%Y-%m-%dT%H:%M') }}{% endif %}"
+                data-status="{{ task.status }}">
+                Edit
+            </button>
+            <form action="{{ url_for('delete_task', task_id=task.id) }}" method="POST" onsubmit="return confirm('Delete this task?');">
+                <button class="danger" type="submit">Delete</button>
+            </form>
+        </div>
+    </div>
+</div>

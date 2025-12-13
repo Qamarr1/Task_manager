@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign Up - Raven</title>
+    <title>Sign Up - Taskly</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
+<body class="auth-gradient">
     <div class="auth-container">
-        <div class="auth-card">
+        <div class="auth-card auth-card-wide">
             <div class="auth-header">
-                <h1>RAVEN</h1>
+                <h1>Taskly</h1>
                 <p>Create your account</p>
             </div>
 
@@ -69,7 +69,7 @@
                            autocomplete="new-password">
                 </div>
 
-                <button type="submit" class="btn btn-primary btn-full">CREATE ACCOUNT</button>
+                <button type="submit" class="btn btn-primary btn-full">Create Account</button>
             </form>
 
             <div class="auth-footer">

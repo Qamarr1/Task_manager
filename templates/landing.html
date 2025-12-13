@@ -3,64 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Raven</title>
+    <title>Taskly</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
-    <div class="landing-container">
-        <!-- Hero Section -->
-        <div class="hero-section">
-            <div class="hero-content">
-                <h1 class="hero-title">RAVEN</h1>
-                <p class="hero-subtitle">TASK MANAGEMENT</p>
-                <div class="hero-buttons">
-                    <a href="{{ url_for('signup') }}" class="btn btn-primary">GET STARTED</a>
-                    <a href="{{ url_for('login') }}" class="btn btn-secondary">SIGN IN</a>
-                </div>
-            </div>
+<body class="auth-gradient">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-banner-container" id="flashBanner">
+            {% for category, message in messages %}
+            <div class="flash-banner {{ category }}">{{ message }}</div>
+            {% endfor %}
         </div>
+        {% endif %}
+    {% endwith %}
 
-        <!-- Features Section -->
-        <div class="features-section">
-            <h2 class="features-title">FEATURES</h2>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">✓</div>
-                    <h3>TASKS</h3>
-                    <p>Create and manage</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">⚡</div>
-                    <h3>PRIORITY</h3>
-                    <p>Set importance</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">📅</div>
-                    <h3>DEADLINES</h3>
-                    <p>Track due dates</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🏷️</div>
-                    <h3>CATEGORIES</h3>
-                    <p>Organize projects</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔍</div>
-                    <h3>SEARCH</h3>
-                    <p>Find anything</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔒</div>
-                    <h3>SECURE</h3>
-                    <p>Private data</p>
-                </div>
+    <div class="auth-container">
+        <div class="auth-card auth-card-wide">
+            <div class="auth-header">
+                <h1>Taskly</h1>
+                <p>Organize your tasks efficiently</p>
             </div>
-        </div>
 
-        <!-- Footer -->
-        <footer class="landing-footer">
-            <p>RAVEN © 2025</p>
-        </footer>
+            <div class="landing-actions landing-row">
+                <a href="{{ url_for('signup') }}" class="btn-primary auth-btn">Get Started</a>
+                <a href="{{ url_for('login') }}" class="btn-secondary auth-btn">Log in</a>
+            </div>
+
+            <div class="landing-footer-text">Taskly © 2025</div>
+        </div>
     </div>
+    <script>
+        const flashBanner = document.getElementById('flashBanner');
+        if (flashBanner) {
+            setTimeout(() => {
+                flashBanner.style.opacity = '0';
+                setTimeout(() => flashBanner.remove(), 500);
+            }, 3000);
+        }
+    </script>
 </body>
 </html>

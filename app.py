@@ -1,6 +1,6 @@
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, Response, session, current_app
@@ -44,7 +44,8 @@ def ensure_schema_columns():
     columns_needed = [
         ('due_date', "ALTER TABLE tasks ADD due_date DATETIME"),
         ('priority', "ALTER TABLE tasks ADD priority VARCHAR(10) NOT NULL DEFAULT 'Medium'"),
-        ('category', "ALTER TABLE tasks ADD category VARCHAR(100) DEFAULT 'General'")
+        ('category', "ALTER TABLE tasks ADD category VARCHAR(100) DEFAULT 'General'"),
+        ('status', "ALTER TABLE tasks ADD status VARCHAR(20) DEFAULT 'todo'")
     ]
 
     try:
@@ -56,6 +57,7 @@ def ensure_schema_columns():
                 'due_date': "ALTER TABLE tasks ADD due_date DATETIME",
                 'priority': "ALTER TABLE tasks ADD priority NVARCHAR(10) NOT NULL DEFAULT 'Medium'",
                 'category': "ALTER TABLE tasks ADD category NVARCHAR(100) DEFAULT 'General'",
+                'status': "ALTER TABLE tasks ADD status NVARCHAR(20) DEFAULT 'todo'",
             }
             for name, alter_stmt in azure_alters.items():
                 cursor.execute(
@@ -146,13 +148,13 @@ def fetch_tasks():
     # Check if user_id column exists, if not skip filtering by user
     try:
         cursor.execute(
-            "SELECT id, title, description, completed, created_at, due_date, priority, category FROM tasks WHERE user_id = ? ORDER BY created_at DESC",
+            "SELECT id, title, description, completed, created_at, due_date, priority, category, status FROM tasks WHERE user_id = ? ORDER BY created_at DESC",
             (user_id,)
         )
     except Exception:
         # Fallback for old schema without user_id
         cursor.execute(
-            "SELECT id, title, description, completed, created_at, due_date, priority, category FROM tasks ORDER BY created_at DESC"
+            "SELECT id, title, description, completed, created_at, due_date, priority, category, COALESCE(status, 'todo') as status FROM tasks ORDER BY created_at DESC"
         )
     
     rows = cursor.fetchall()
@@ -174,10 +176,15 @@ def fetch_tasks():
             'created_at': created_at,
             'due_date': due_date,
             'priority': raw.get('priority', 'Medium'),
-            'category': raw.get('category', 'General')
+            'category': raw.get('category', 'General'),
+            'status': raw.get('status', 'todo')
         }
         task['is_overdue'] = (not task['completed']) and task['due_date'] is not None and task['due_date'] < now
-        task['is_due_today'] = task['due_date'] is not None and task['due_date'].date() == now.date()
+        task['is_due_today'] = (
+            task['due_date'] is not None
+            and task['due_date'].date() == now.date()
+            and not task['is_overdue']
+        )
         task['priority_rank'] = priority_order.get(task['priority'], 2)
         tasks.append(task)
 
@@ -284,6 +291,7 @@ def login():
         if user:
             session['user_id'] = user['id']
             session['username'] = user['username']
+            session['email'] = user.get('email', '')
             flash(f'Welcome back, {user["username"]}!', 'success')
             logger.info(f"User logged in: {user['username']}")
             return redirect(url_for('home'))
@@ -304,6 +312,111 @@ def logout():
     return redirect(url_for('landing'))
 
 
+@app.route('/change-username', methods=['POST'])
+@login_required
+def change_username():
+    """Change user's username."""
+    try:
+        data = request.get_json()
+        current_password = data.get('current_password')
+        new_username = data.get('new_username')
+        
+        if not current_password or not new_username:
+            return jsonify({'error': 'Current password and new username are required'}), 400
+        
+        # Validate new username
+        if len(new_username) < 3 or len(new_username) > 50:
+            return jsonify({'error': 'Username must be between 3 and 50 characters'}), 400
+        
+        user_id = session.get('user_id')
+        
+        # Verify current password
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,))
+        user = cursor.fetchone()
+        
+        if not user:
+            conn.close()
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Check if current password is correct
+        from werkzeug.security import check_password_hash
+        if not check_password_hash(user['password_hash'] if hasattr(user, '__getitem__') else user[0], current_password):
+            conn.close()
+            return jsonify({'error': 'Current password is incorrect'}), 401
+        
+        # Check if new username already exists
+        cursor.execute("SELECT id FROM users WHERE username = ? AND id != ?", (new_username, user_id))
+        if cursor.fetchone():
+            conn.close()
+            return jsonify({'error': 'Username already taken'}), 409
+        
+        # Update username
+        cursor.execute("UPDATE users SET username = ? WHERE id = ?", (new_username, user_id))
+        conn.commit()
+        conn.close()
+        
+        # Update session
+        session['username'] = new_username
+        logger.info(f"User {user_id} changed username to {new_username}")
+        
+        return jsonify({'message': 'Username updated successfully!'}), 200
+        
+    except Exception as e:
+        logger.error(f"Error changing username: {str(e)}")
+        return jsonify({'error': 'An error occurred while changing username'}), 500
+
+
+@app.route('/change-password', methods=['POST'])
+@login_required
+def change_password():
+    """Change user's password."""
+    try:
+        data = request.get_json()
+        current_password = data.get('current_password')
+        new_password = data.get('new_password')
+        
+        if not current_password or not new_password:
+            return jsonify({'error': 'Current password and new password are required'}), 400
+        
+        # Validate new password
+        if len(new_password) < 6:
+            return jsonify({'error': 'New password must be at least 6 characters'}), 400
+        
+        user_id = session.get('user_id')
+        
+        # Verify current password
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,))
+        user = cursor.fetchone()
+        
+        if not user:
+            conn.close()
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Check if current password is correct
+        from werkzeug.security import check_password_hash, generate_password_hash
+        if not check_password_hash(user['password_hash'] if hasattr(user, '__getitem__') else user[0], current_password):
+            conn.close()
+            return jsonify({'error': 'Current password is incorrect'}), 401
+        
+        # Update password
+        hashed_password = generate_password_hash(new_password)
+        cursor.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hashed_password, user_id))
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"User {user_id} changed password successfully")
+        
+        return jsonify({'message': 'Password updated successfully!'}), 200
+        
+    except Exception as e:
+        logger.error(f"Error changing password: {str(e)}")
+        return jsonify({'error': 'An error occurred while changing password'}), 500
+
+
 @app.route('/home')
 @app.route('/tasks')
 @login_required
@@ -319,7 +432,9 @@ def home():
 
         filtered = []
         for task in tasks:
-            if search_term and search_term not in task['title'].lower():
+            description_text = (task.get('description') or '').lower()
+            title_text = (task.get('title') or '').lower()
+            if search_term and search_term not in title_text and search_term not in description_text:
                 continue
             if category_filter not in ('', 'all') and task['category'].lower() != category_filter.lower():
                 continue
@@ -355,12 +470,24 @@ def home():
             'category': category_filter
         }
 
+        # Calculate statistics
+        now = datetime.now()
+        today_end = datetime.combine(now.date(), datetime.max.time())
+        week_end = now + timedelta(days=7)
+        
+        stats = {
+            'overdue': sum(1 for t in tasks if t.get('is_overdue', False) and not t.get('completed', False)),
+            'due_today': sum(1 for t in tasks if t.get('is_due_today', False) and not t.get('is_overdue', False) and not t.get('completed', False)),
+            'due_week': sum(1 for t in tasks if t.get('due_date') and now <= t['due_date'] <= week_end and not t.get('completed', False)),
+            'total': len([t for t in tasks if not t.get('completed', False)])
+        }
+
         logger.info("Rendering %d tasks after filters", len(filtered))
-        return render_template('index.html', tasks=filtered, grouped_tasks=grouped_tasks, filters=filters)
+        return render_template('index.html', tasks=filtered, grouped_tasks=grouped_tasks, filters=filters, stats=stats)
     except Exception as exc:
         logger.error("Error fetching tasks: %s", exc)
         flash('Error loading tasks', 'error')
-        return render_template('index.html', tasks=[], grouped_tasks={}, filters={})
+        return render_template('index.html', tasks=[], grouped_tasks={}, filters={}, stats={'overdue': 0, 'due_today': 0, 'due_week': 0, 'total': 0})
 
 
 @app.route('/task/add', methods=['POST'])
@@ -373,6 +500,7 @@ def add_task():
         priority = request.form.get('priority', 'Medium').title()
         category = request.form.get('category', 'General').strip() or 'General'
         due_date_str = request.form.get('due_date', '').strip()
+        status = request.form.get('status', 'todo').strip()
         user_id = session.get('user_id')
 
         if not title:
@@ -395,6 +523,12 @@ def add_task():
 
         if priority not in ('High', 'Medium', 'Low'):
             priority = 'Medium'
+        
+        if status not in ('todo', 'in_progress', 'in_review', 'done'):
+            status = 'todo'
+        
+        if status not in ('todo', 'in_progress', 'in_review', 'done'):
+            status = 'todo'
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -402,13 +536,13 @@ def add_task():
         # Try to insert with user_id, fallback to without for old schema
         try:
             cursor.execute(
-                'INSERT INTO tasks (title, description, due_date, priority, category, user_id) VALUES (?, ?, ?, ?, ?, ?)',
-                (title, description, due_date.isoformat() if due_date else None, priority, category, user_id)
+                'INSERT INTO tasks (title, description, due_date, priority, category, status, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                (title, description, due_date.isoformat() if due_date else None, priority, category, status, user_id)
             )
         except Exception:
             cursor.execute(
-                'INSERT INTO tasks (title, description, due_date, priority, category) VALUES (?, ?, ?, ?, ?)',
-                (title, description, due_date.isoformat() if due_date else None, priority, category)
+                'INSERT INTO tasks (title, description, due_date, priority, category, status) VALUES (?, ?, ?, ?, ?, ?)',
+                (title, description, due_date.isoformat() if due_date else None, priority, category, status)
             )
         
         conn.commit()
@@ -503,6 +637,7 @@ def edit_task(task_id):
         priority = request.form.get('priority', 'Medium').title()
         category = request.form.get('category', 'General').strip() or 'General'
         due_date_str = request.form.get('due_date', '').strip()
+        status = request.form.get('status', 'todo').strip()
 
         if not title:
             flash('Task title is required', 'error')
@@ -528,10 +663,10 @@ def edit_task(task_id):
         cursor.execute(
             """
             UPDATE tasks 
-            SET title = ?, description = ?, priority = ?, category = ?, due_date = ?
+            SET title = ?, description = ?, priority = ?, category = ?, due_date = ?, status = ?
             WHERE id = ?
             """,
-            (title, description, priority, category, due_date.isoformat() if due_date else None, task_id)
+            (title, description, priority, category, due_date.isoformat() if due_date else None, status, task_id)
         )
         conn.commit()
         cursor.close()
@@ -542,6 +677,47 @@ def edit_task(task_id):
     except Exception as exc:
         logger.error("Error editing task %s: %s", task_id, exc)
         flash('Error updating task', 'error')
+        return redirect(url_for('home'))
+
+
+@app.route('/task/<int:task_id>/move', methods=['POST'])
+@login_required
+def move_task(task_id):
+    """Move a task to a different status column."""
+    try:
+        status = ''
+        if request.is_json:
+            data = request.get_json(silent=True) or {}
+            status = (data.get('status') or '').strip()
+        else:
+            status = request.form.get('status', '').strip()
+        
+        # Validate status
+        valid_statuses = ['todo', 'in_progress', 'in_review', 'done']
+        if status not in valid_statuses:
+            if request.is_json:
+                return jsonify({'error': 'Invalid status'}), 400
+            flash('Invalid status', 'error')
+            return redirect(url_for('home'))
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE tasks SET status = ? WHERE id = ?",
+            (status, task_id)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        if request.is_json:
+            return jsonify({'message': 'Task moved', 'status': status}), 200
+
+        flash('Task moved successfully', 'success')
+        return redirect(url_for('home'))
+    except Exception as exc:
+        logger.error("Error moving task %s: %s", task_id, exc)
+        flash('Error moving task', 'error')
         return redirect(url_for('home'))
 
 

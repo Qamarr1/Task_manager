@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     priority VARCHAR(10) NOT NULL DEFAULT 'Medium',
     category VARCHAR(100) DEFAULT 'General',
     due_date DATETIME,
+    status VARCHAR(20) DEFAULT 'todo',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     user_id INTEGER NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE

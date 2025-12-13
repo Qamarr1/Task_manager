@@ -3,172 +3,390 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Raven</title>
+    <title>Taskly - Kanban Board</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <div class="header-content">
-                <div>
-                    <h1>RAVEN</h1>
-                    <p>{{ session.get('username', 'User') }}</p>
+    <div class="app-shell">
+        <nav class="top-nav">
+            <div class="nav-inner">
+                <div class="brand">
+                    <div class="brand-mark">Taskly</div>
+                    <p class="brand-sub">Flow your tasks across the board</p>
                 </div>
-                <div class="user-info">
-                    <a href="{{ url_for('logout') }}" class="btn btn-logout">LOGOUT</a>
+                <div class="nav-right">
+                    <div class="user-menu">
+                        <button class="user-button" id="userDropdownBtn">
+                            <span class="user-avatar">{{ session.get('username', 'U')[0].upper() }}</span>
+                            <div class="user-info">
+                                <span class="user-name">{{ session.get('username', 'User') }}</span>
+                                <span class="user-email">{{ session.get('email', 'No email') }}</span>
+                            </div>
+                            <svg class="dropdown-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M4 6l4 4 4-4"/>
+                            </svg>
+                        </button>
+                        <div class="user-dropdown" id="userDropdown" style="display: none;">
+                            <div class="dropdown-header">
+                                <div class="dropdown-avatar">{{ session.get('username', 'U')[0].upper() }}</div>
+                                <div>
+                                    <div class="dropdown-username">{{ session.get('username', 'User') }}</div>
+                                    <div class="dropdown-email">{{ session.get('email', 'No email') }}</div>
+                                </div>
+                            </div>
+                            <div class="dropdown-divider"></div>
+                            <a href="#" onclick="openChangeUsernameModal(); return false;" class="dropdown-item">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/>
+                                </svg>
+                                Change Username
+                            </a>
+                            <a href="#" onclick="openChangePasswordModal(); return false;" class="dropdown-item">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+                                </svg>
+                                Change Password
+                            </a>
+                            <div class="dropdown-divider"></div>
+                            <a href="#" onclick="openSettingsModal(); return false;" class="dropdown-item">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
+                                    <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319z"/>
+                                </svg>
+                                Settings
+                            </a>
+                            <div class="dropdown-divider"></div>
+                            <a href="{{ url_for('logout') }}" class="dropdown-item dropdown-item-danger">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"/>
+                                    <path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+                                </svg>
+                                Logout
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </header>
+        </nav>
 
-        <main>
-            <!-- Flash Messages -->
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    <div class="messages">
-                        {% for category, message in messages %}
-                            <div class="message {{ category }}">{{ message }}</div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flash-banner-container flash-banner-center" id="flashBanner">
+                {% for category, message in messages %}
+                <div class="flash-banner {{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        {% endwith %}
+
+        <main class="page-content">
+            <section class="filter-bar inline-controls">
+                <div class="filter-control">
+                    <label for="searchInput">Search</label>
+                    <div class="input-wrap">
+                        <input type="search" id="searchInput" placeholder="Find by title or description">
+                    </div>
+                </div>
+                <div class="filter-control">
+                    <label for="priorityFilter">Priority</label>
+                    <div class="input-wrap">
+                        <select id="priorityFilter">
+                            <option value="All" selected>All priorities</option>
+                            <option value="High">High</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Low">Low</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="filter-control">
+                    <label for="categoryFilter">Category</label>
+                    <div class="input-wrap">
+                        <select id="categoryFilter">
+                            <option value="All" selected>All categories</option>
+                            <option value="Shopping">Shopping</option>
+                            <option value="Education">Education</option>
+                            <option value="Travel">Travel</option>
+                            <option value="Food & Dining">Food & Dining</option>
+                            <option value="Entertainment">Entertainment</option>
+                            <option value="Health & Fitness">Health & Fitness</option>
+                            <option value="Home & Garden">Home & Garden</option>
+                            <option value="Finance">Finance</option>
+                            <option value="Automotive">Automotive</option>
+                            <option value="Technology">Technology</option>
+                            <option value="Family">Family</option>
+                            <option value="Sports">Sports</option>
+                            <option value="Hobbies">Hobbies</option>
+                            <option value="Pets">Pets</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="filter-actions">
+                    <button class="secondary" type="button" onclick="filterTasks()">Apply</button>
+                    <button class="ghost" type="button" onclick="resetFilters()">Reset</button>
+                    <button class="primary" type="button" onclick="openAddModal()">+ New Task</button>
+                </div>
+            </section>
+
+            <section class="stats-grid">
+                <div class="stat-card stat-overdue">
+                    <div class="stat-label">Overdue</div>
+                    <div class="stat-value">{{ stats.overdue }}</div>
+                </div>
+                <div class="stat-card stat-today">
+                    <div class="stat-label">Due Today</div>
+                    <div class="stat-value">{{ stats.due_today }}</div>
+                </div>
+                <div class="stat-card stat-week">
+                    <div class="stat-label">This Week</div>
+                    <div class="stat-value">{{ stats.due_week }}</div>
+                </div>
+                <div class="stat-card stat-total">
+                    <div class="stat-label">Total Tasks</div>
+                    <div class="stat-value">{{ stats.total }}</div>
+                </div>
+            </section>
+
+            {% if tasks %}
+            <section class="kanban-board">
+                <div class="kanban-column column-todo">
+                    <div class="column-header">
+                        <h3 class="column-title">To do</h3>
+                        <span class="column-count" id="count-todo">0</span>
+                    </div>
+                    <div class="column-body" id="column-todo">
+                        {% for task in tasks %}
+                        {% if task.status == 'todo' %}
+                        {% include 'task_card.html' %}
+                        {% endif %}
                         {% endfor %}
                     </div>
-                {% endif %}
-            {% endwith %}
-
-            <!-- Add Task Form -->
-            <section class="add-task-section">
-                <h2>NEW TASK</h2>
-                <form action="{{ url_for('add_task') }}" method="POST" class="task-form">
-                    <div class="form-group">
-                        <input type="text" 
-                               name="title" 
-                               placeholder="Title" 
-                               maxlength="255" 
-                               required>
-                    </div>
-                    <div class="form-group">
-                        <textarea name="description" 
-                                  placeholder="Description" 
-                                  rows="2"></textarea>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <select name="priority" id="priority">
-                                <option value="High">High</option>
-                                <option value="Medium" selected>Medium</option>
-                                <option value="Low">Low</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <input type="text" name="category" id="category" placeholder="Category">
-                        </div>
-                        <div class="form-group">
-                            <input type="datetime-local" 
-                                   id="due_date" 
-                                   name="due_date">
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-primary">ADD</button>
-                </form>
-            </section>
-
-            <!-- Tasks List -->
-            <section class="tasks-section">
-                <div class="tasks-header">
-                    <h2>TASKS ({{ tasks|length }})</h2>
-                    <form method="get" class="filters">
-                        <div class="filter-row">
-                            <input type="search" name="q" placeholder="Search" value="{{ filters.get('q','') if filters else '' }}">
-                            <select name="status">
-                                {% set status = filters.get('status','all') if filters else 'all' %}
-                                <option value="all" {% if status == 'all' %}selected{% endif %}>All</option>
-                                <option value="pending" {% if status == 'pending' %}selected{% endif %}>Pending</option>
-                                <option value="completed" {% if status == 'completed' %}selected{% endif %}>Done</option>
-                                <option value="overdue" {% if status == 'overdue' %}selected{% endif %}>Overdue</option>
-                            </select>
-                            <select name="sort">
-                                {% set sort = filters.get('sort','priority_desc') if filters else 'priority_desc' %}
-                                <option value="priority_desc" {% if sort == 'priority_desc' %}selected{% endif %}>Priority ↓</option>
-                                <option value="created_desc" {% if sort == 'created_desc' %}selected{% endif %}>Newest</option>
-                            </select>
-                            <button type="submit" class="btn btn-secondary">FILTER</button>
-                        </div>
-                    </form>
                 </div>
-                
-                {% if grouped_tasks %}
-                    {% for category, cat_tasks in grouped_tasks.items() %}
-                        <div class="category-group">
-                            <div class="category-header">
-                                <h3>{{ category }}</h3>
-                            </div>
-                            <div class="tasks-list">
-                                {% for task in cat_tasks %}
-                                <div class="task-card {% if task.completed %}completed{% endif %} {% if task.is_overdue %}overdue{% endif %} priority-{{ task.priority }}">
-                                    <div class="task-header">
-                                        <h3>{{ task.title }}</h3>
-                                        <span class="task-status">
-                                            {% if task.is_overdue %}OVERDUE{% elif task.completed %}DONE{% else %}PENDING{% endif %}
-                                        </span>
-                                    </div>
-                                    
-                                    {% if task.description %}
-                                    <p class="task-description">{{ task.description }}</p>
-                                    {% endif %}
-                                    
-                                    <div class="task-meta">
-                                        <span class="task-meta-item priority-badge priority-{{ task.priority }}">{{ task.priority }}</span>
-                                        {% if task.due_date %}
-                                        <span class="task-meta-item">Due: {{ task.due_date.strftime('%m/%d %H:%M') }}</span>
-                                        {% endif %}
-                                    </div>
-                                    
-                                    <div class="task-actions">
-                                        <form action="{{ url_for('toggle_task', task_id=task.id) }}" method="POST" style="display: inline;">
-                                            <button type="submit" class="btn btn-secondary">
-                                                {% if task.completed %}UNDO{% else %}DONE{% endif %}
-                                            </button>
-                                        </form>
-                                        <form action="{{ url_for('delete_task', task_id=task.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Delete?');">
-                                            <button type="submit" class="btn btn-danger">DELETE</button>
-                                        </form>
-                                    </div>
-                                    <details class="edit-panel">
-                                        <summary>EDIT</summary>
-                                        <form action="{{ url_for('edit_task', task_id=task.id) }}" method="POST" class="task-form">
-                                            <div class="form-group">
-                                                <input type="text" name="title" value="{{ task.title }}" required maxlength="255">
-                                            </div>
-                                            <div class="form-group">
-                                                <textarea name="description" rows="2">{{ task.description }}</textarea>
-                                            </div>
-                                            <div class="form-row">
-                                                <div class="form-group">
-                                                    <select name="priority">
-                                                        <option value="High" {% if task.priority == 'High' %}selected{% endif %}>High</option>
-                                                        <option value="Medium" {% if task.priority == 'Medium' %}selected{% endif %}>Medium</option>
-                                                        <option value="Low" {% if task.priority == 'Low' %}selected{% endif %}>Low</option>
-                                                    </select>
-                                                </div>
-                                                <div class="form-group">
-                                                    <input type="text" name="category" value="{{ task.category }}">
-                                                </div>
-                                                <div class="form-group">
-                                                    <input type="datetime-local" name="due_date" value="{% if task.due_date %}{{ task.due_date.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
-                                                </div>
-                                            </div>
-                                            <button type="submit" class="btn btn-primary">SAVE</button>
-                                        </form>
-                                    </details>
-                                </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="empty-state">
-                        <p>NO TASKS</p>
+
+                <div class="kanban-column column-progress">
+                    <div class="column-header">
+                        <h3 class="column-title">In progress</h3>
+                        <span class="column-count" id="count-in_progress">0</span>
                     </div>
-                {% endif %}
+                    <div class="column-body" id="column-in_progress">
+                        {% for task in tasks %}
+                        {% if task.status == 'in_progress' %}
+                        {% include 'task_card.html' %}
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="kanban-column column-review">
+                    <div class="column-header">
+                        <h3 class="column-title">In review</h3>
+                        <span class="column-count" id="count-in_review">0</span>
+                    </div>
+                    <div class="column-body" id="column-in_review">
+                        {% for task in tasks %}
+                        {% if task.status == 'in_review' %}
+                        {% include 'task_card.html' %}
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="kanban-column column-done">
+                    <div class="column-header">
+                        <h3 class="column-title">Done</h3>
+                        <span class="column-count" id="count-done">0</span>
+                    </div>
+                    <div class="column-body" id="column-done">
+                        {% for task in tasks %}
+                        {% if task.status == 'done' %}
+                        {% include 'task_card.html' %}
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
             </section>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-card">
+                    <p>No tasks yet</p>
+                    <button class="primary" type="button" onclick="openAddModal()">Create your first task</button>
+                </div>
+            </div>
+            {% endif %}
         </main>
     </div>
+
+    <div class="modal" id="taskModal" data-add-url="{{ url_for('add_task') }}" data-edit-url-template="{{ url_for('edit_task', task_id=0) }}">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <div>
+                    <p class="eyebrow">Task</p>
+                    <h3 id="taskModalTitle">Add task</h3>
+                </div>
+                <button class="close-modal" type="button" onclick="closeTaskModal()">&times;</button>
+            </div>
+            <form id="taskForm" method="POST" action="{{ url_for('add_task') }}" class="modal-body">
+                <div class="form-grid">
+                    <label>
+                        <span>Title</span>
+                        <input type="text" name="title" required maxlength="255" placeholder="Short, clear task title">
+                    </label>
+                    <label>
+                        <span>Description</span>
+                        <textarea name="description" rows="3" placeholder="What needs to happen?"></textarea>
+                    </label>
+                    <label>
+                        <span>Priority</span>
+                        <select name="priority">
+                            <option value="High">High</option>
+                            <option value="Medium" selected>Medium</option>
+                            <option value="Low">Low</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span>Category</span>
+                        <select name="category">
+                            <option value="Shopping">Shopping</option>
+                            <option value="Education">Education</option>
+                            <option value="Travel">Travel</option>
+                            <option value="Food & Dining">Food & Dining</option>
+                            <option value="Entertainment">Entertainment</option>
+                            <option value="Health & Fitness">Health & Fitness</option>
+                            <option value="Home & Garden">Home & Garden</option>
+                            <option value="Finance">Finance</option>
+                            <option value="Automotive">Automotive</option>
+                            <option value="Technology">Technology</option>
+                            <option value="Family">Family</option>
+                            <option value="Sports">Sports</option>
+                            <option value="Hobbies">Hobbies</option>
+                            <option value="Pets">Pets</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span>Status</span>
+                        <select name="status">
+                            <option value="todo">To do</option>
+                            <option value="in_progress">In progress</option>
+                            <option value="in_review">In review</option>
+                            <option value="done">Done</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span>Due date</span>
+                        <input type="datetime-local" name="due_date">
+                    </label>
+                </div>
+                <div class="modal-actions">
+                    <button class="ghost" type="button" onclick="closeTaskModal()">Cancel</button>
+                    <button class="primary" type="submit">Save Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="changeUsernameModal" class="modal" style="display: none;">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <h2>Change Username</h2>
+                <span class="close-modal" onclick="closeChangeUsernameModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="changeUsernameForm" onsubmit="changeUsername(event)">
+                    <div class="form-group">
+                        <label for="newUsername">New Username</label>
+                        <input type="text" id="newUsername" name="newUsername" required minlength="3" maxlength="50">
+                    </div>
+                    <div class="form-group">
+                        <label for="currentPasswordUsername">Current Password (for verification)</label>
+                        <input type="password" id="currentPasswordUsername" name="currentPassword" required>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="ghost" onclick="closeChangeUsernameModal()">Cancel</button>
+                        <button type="submit" class="primary">Change Username</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="changePasswordModal" class="modal" style="display: none;">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <h2>Change Password</h2>
+                <span class="close-modal" onclick="closeChangePasswordModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="changePasswordForm" onsubmit="changePassword(event)">
+                    <div class="form-group">
+                        <label for="currentPassword">Current Password</label>
+                        <input type="password" id="currentPassword" name="currentPassword" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">New Password</label>
+                        <input type="password" id="newPassword" name="newPassword" required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm New Password</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="ghost" onclick="closeChangePasswordModal()">Cancel</button>
+                        <button type="submit" class="primary">Change Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="settingsModal" class="modal" style="display: none;">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <span class="close-modal" onclick="closeSettingsModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="settings-section">
+                    <h3>Theme</h3>
+                    <div class="form-group">
+                        <label for="themeSelect">App Theme</label>
+                        <select id="themeSelect" onchange="applyTheme(this.value)">
+                            <option value="light">Light Mode</option>
+                            <option value="dark">Dark Mode</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="settings-section">
+                    <h3>Notifications</h3>
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <input type="checkbox" id="browserNotifications" onchange="toggleBrowserNotifications(this.checked)">
+                            <span>Browser Notifications</span>
+                        </label>
+                        <small>Get notified about overdue and due today tasks</small>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <input type="checkbox" id="soundNotifications" onchange="toggleSoundNotifications(this.checked)">
+                            <span>Sound Notifications</span>
+                        </label>
+                        <small>Play sound with notifications</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        const flashBanner = document.getElementById('flashBanner');
+        if (flashBanner) {
+            setTimeout(() => {
+                flashBanner.style.opacity = '0';
+                setTimeout(() => flashBanner.remove(), 500);
+            }, 3000);
+        }
+    </script>
 </body>
 </html>
