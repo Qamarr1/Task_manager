@@ -92,8 +92,8 @@ def test_database_insert_and_query(cleanup_test_db):
     
     # Insert test data
     cursor.execute(
-        "INSERT INTO tasks (title, description, completed) VALUES (?, ?, ?)",
-        ("Test Task", "Test Description", 0)
+        "INSERT INTO tasks (title, description, completed, user_id) VALUES (?, ?, ?, ?)",
+        ("Test Task", "Test Description", 0, 1)
     )
     conn.commit()
     
@@ -139,8 +139,8 @@ def test_execute_query_with_params(cleanup_test_db):
     
     # Test insert
     result = execute_query(
-        "INSERT INTO tasks (title, description) VALUES (?, ?)",
-        ("Query Test", "Description")
+        "INSERT INTO tasks (title, description, user_id) VALUES (?, ?, ?)",
+        ("Query Test", "Description", 1)
     )
     assert result == 1  # One row affected
     

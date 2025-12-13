@@ -11,15 +11,38 @@ def client():
     """Create test client with fresh database"""
     app.config['TESTING'] = True
     import os
+    import time
     
     import sqlite3
     # Initialize database with schema
-    if os.path.exists('tasks.db'):
-        os.remove('tasks.db')
-    conn = sqlite3.connect('tasks.db')
+    test_db = 'test_tasks.db'
+    if os.path.exists(test_db):
+        try:
+            os.remove(test_db)
+        except:
+            time.sleep(0.1)
+            os.remove(test_db)
+    
+    # Override database path for testing
+    from config import Config
+    original_db = Config.SQLITE_DATABASE
+    Config.SQLITE_DATABASE = test_db
+    
+    conn = sqlite3.connect(test_db)
     cursor = conn.cursor()
     
-    # Create table if it doesn't exist
+    # Create users table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Create tasks table with user_id and all required columns
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,28 +52,44 @@ def client():
             priority TEXT DEFAULT 'Medium',
             category TEXT DEFAULT 'General',
             due_date DATETIME,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            user_id INTEGER NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id)
         )
     ''')
     
-    # Clear existing data and insert test data
+    # Create test user
+    cursor.execute("INSERT INTO users (username, email, password_hash) VALUES ('testuser', 'test@example.com', 'hash')")
+    user_id = cursor.lastrowid
+    
+    # Clear existing data and insert test data with user_id
     cursor.execute('DELETE FROM tasks')
-    cursor.execute("INSERT INTO tasks (title, completed, priority, category) VALUES ('Test Task', 0, 'High', 'Work')")
+    cursor.execute("INSERT INTO tasks (title, completed, priority, category, user_id) VALUES ('Test Task', 0, 'High', 'Work', ?)", (user_id,))
     conn.commit()
     conn.close()
     
     with app.test_client() as client:
+        # Set user_id in session for testing
+        with client.session_transaction() as sess:
+            sess['user_id'] = user_id
         yield client
+    
+    # Cleanup
+    Config.SQLITE_DATABASE = original_db
+    if os.path.exists(test_db):
+        try:
+            os.remove(test_db)
+        except:
+            pass
 
 def test_home_page_loads(client):
-    """Test that homepage loads"""
-    response = client.get('/')
+    """Test that homepage loads (landing page)"""
+    response = client.get('/', follow_redirects=True)
     assert response.status_code == 200
-    assert b'Task Manager' in response.data
 
 def test_home_displays_tasks(client):
     """Test that homepage displays tasks"""
-    response = client.get('/')
+    response = client.get('/tasks')
     assert b'Test Task' in response.data
 
 def test_add_task_success(client):
