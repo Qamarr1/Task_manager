@@ -160,7 +160,10 @@ async function toggleBrowserNotifications(enabled) {
 }
 
 function toggleSoundNotifications(enabled) {
-    localStorage.setItem('soundNotifications', enabled ? 'true' : 'false');
+    // Sound notifications removed per user request; keep checkbox but no-op for storage
+    localStorage.setItem('soundNotifications', 'false');
+    const box = document.getElementById('soundNotifications');
+    if (box) box.checked = false;
 }
 
 // Task Filtering
@@ -251,32 +254,67 @@ function openEditModal(buttonEl) {
     modal.classList.add('show');
 }
 
+// Inline banner helper (uses flash banner styles)
+function showInlineBanner(message, type = 'info') {
+    let container = document.getElementById('flashBanner');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'flashBanner';
+        container.className = 'flash-banner-container';
+        document.body.appendChild(container);
+    }
+
+    const banner = document.createElement('div');
+    banner.className = `flash-banner ${type}`;
+    banner.textContent = message;
+    container.appendChild(banner);
+
+    setTimeout(() => {
+        banner.style.opacity = '0';
+        setTimeout(() => banner.remove(), 500);
+    }, 3000);
+}
+
 // Notifications
 function checkDueTasksAndNotify() {
     const browserNotifs = localStorage.getItem('browserNotifications') === 'true';
-    if (!browserNotifs || !('Notification' in window) || Notification.permission !== 'granted') {
-        return;
-    }
+    if (!browserNotifs) return;
 
     const overdueStat = document.querySelector('.stat-overdue .stat-value');
     const todayStat = document.querySelector('.stat-today .stat-value');
-    if (overdueStat && todayStat) {
-        const overdue = parseInt(overdueStat.textContent, 10);
-        const dueToday = parseInt(todayStat.textContent, 10);
+    const overdue = overdueStat ? parseInt(overdueStat.textContent, 10) : 0;
+    const dueToday = todayStat ? parseInt(todayStat.textContent, 10) : 0;
 
-        if (overdue > 0) {
-            new Notification('Taskly - Overdue Tasks', {
-                body: `You have ${overdue} overdue task${overdue > 1 ? 's' : ''}!`,
-                icon: '/static/favicon.ico',
-                tag: 'overdue-tasks'
-            });
-        } else if (dueToday > 0) {
-            new Notification('Taskly - Due Today', {
-                body: `You have ${dueToday} task${dueToday > 1 ? 's' : ''} due today!`,
-                icon: '/static/favicon.ico',
-                tag: 'due-today-tasks'
-            });
-        }
+    if (overdue === 0 && dueToday === 0) return;
+
+    if (!('Notification' in window)) {
+        showInlineBanner('Browser notifications not supported here.', 'error');
+        return;
+    }
+
+    if (Notification.permission !== 'granted') {
+        showInlineBanner('Enable notifications in your browser to get alerts.', 'error');
+        return;
+    }
+
+    if (overdue > 0) {
+        const body = `You have ${overdue} overdue task${overdue > 1 ? 's' : ''}!`;
+        new Notification('Taskly - Overdue Tasks', {
+            body,
+            icon: '/static/favicon.ico',
+            tag: 'overdue-tasks'
+        });
+        showInlineBanner(body, 'error');
+    }
+
+    if (dueToday > 0) {
+        const body = `You have ${dueToday} task${dueToday > 1 ? 's' : ''} due today!`;
+        new Notification('Taskly - Due Today', {
+            body,
+            icon: '/static/favicon.ico',
+            tag: 'due-today-tasks'
+        });
+        showInlineBanner(body, 'success');
     }
 }
 
@@ -302,4 +340,49 @@ document.addEventListener('DOMContentLoaded', function() {
 
     updateColumnCounts();
     checkDueTasksAndNotify();
+
+    const bellBtn = document.getElementById('notificationsBtn');
+    const notifDropdown = document.getElementById('notificationsDropdown');
+    const notifList = document.getElementById('notifList');
+
+    if (bellBtn && notifDropdown && notifList) {
+        bellBtn.addEventListener('click', () => {
+            const isOpen = notifDropdown.style.display === 'block';
+            notifDropdown.style.display = isOpen ? 'none' : 'block';
+            if (isOpen) return;
+
+            notifList.innerHTML = '';
+            const overdueStat = document.querySelector('.stat-overdue .stat-value');
+            const todayStat = document.querySelector('.stat-today .stat-value');
+            const overdue = overdueStat ? parseInt(overdueStat.textContent, 10) : 0;
+            const dueToday = todayStat ? parseInt(todayStat.textContent, 10) : 0;
+
+            if (overdue > 0) {
+                const item = document.createElement('div');
+                item.className = 'notif-item';
+                item.innerHTML = `<strong>Overdue</strong><span class="meta">${overdue} task${overdue > 1 ? 's' : ''}</span>`;
+                notifList.appendChild(item);
+            }
+
+            if (dueToday > 0) {
+                const item = document.createElement('div');
+                item.className = 'notif-item';
+                item.innerHTML = `<strong>Due Today</strong><span class="meta">${dueToday} task${dueToday > 1 ? 's' : ''}</span>`;
+                notifList.appendChild(item);
+            }
+
+            if (overdue === 0 && dueToday === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'notif-empty';
+                empty.textContent = 'No due items right now.';
+                notifList.appendChild(empty);
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!notifDropdown.contains(e.target) && !bellBtn.contains(e.target)) {
+                notifDropdown.style.display = 'none';
+            }
+        });
+    }
 });
