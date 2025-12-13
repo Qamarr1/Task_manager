@@ -128,11 +128,8 @@ function loadSettings() {
         themeSelect.value = theme;
     }
     const browserNotifs = localStorage.getItem('browserNotifications') === 'true';
-    const soundNotifs = localStorage.getItem('soundNotifications') === 'true';
     const browserCheckbox = document.getElementById('browserNotifications');
-    const soundCheckbox = document.getElementById('soundNotifications');
     if (browserCheckbox) browserCheckbox.checked = browserNotifs;
-    if (soundCheckbox) soundCheckbox.checked = soundNotifs;
 }
 
 function applyTheme(theme) {
@@ -159,12 +156,7 @@ async function toggleBrowserNotifications(enabled) {
     }
 }
 
-function toggleSoundNotifications(enabled) {
-    // Sound notifications removed per user request; keep checkbox but no-op for storage
-    localStorage.setItem('soundNotifications', 'false');
-    const box = document.getElementById('soundNotifications');
-    if (box) box.checked = false;
-}
+// Sound notifications removed per request
 
 // Task Filtering
 function filterTasks() {
