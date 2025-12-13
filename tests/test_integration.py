@@ -52,6 +52,7 @@ def client():
             completed INTEGER DEFAULT 0,
             priority TEXT DEFAULT 'Medium',
             category TEXT DEFAULT 'General',
+            status TEXT DEFAULT 'todo',
             due_date DATETIME,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             user_id INTEGER NOT NULL,
