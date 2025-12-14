@@ -225,6 +225,13 @@ def fetch_tasks():
             'status': status
         }
         task['is_overdue'] = not completed and task['due_date'] is not None and task['due_date'] < now
+        
+        # Debug logging for overdue detection
+        if task['due_date'] is not None:
+            logger.info(
+                f"Task '{task['title']}' - completed={completed}, due_date={task['due_date']}, "
+                f"now={now}, is_overdue={task['is_overdue']}, comparison={task['due_date'] < now}"
+            )
         task['is_due_today'] = (
             task['due_date'] is not None
             and task['due_date'].date() == now.date()
