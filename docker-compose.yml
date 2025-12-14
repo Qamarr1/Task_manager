@@ -1,23 +1,51 @@
-version: '3.8'
-
 services:
   # Flask application
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.simple
+      labels:
+        com.taskmanager.service: "web"
+        com.taskmanager.environment: "development"
+    image: task-manager:${VERSION:-latest}
     container_name: task-manager-app
     ports:
       - "8000:8000"
     environment:
-      - ENVIRONMENT=production
+      - ENVIRONMENT=${ENVIRONMENT:-production}
       - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
-      - AZURE_SQL_CONNECTION_STRING=${AZURE_SQL_CONNECTION_STRING}
+      - DB_TYPE=${DB_TYPE:-azure_sql}
+      - SQLITE_DATABASE=${SQLITE_DATABASE:-/app/tasks.db}
+      - AZURE_SQL_SERVER=${AZURE_SQL_SERVER}
+      - AZURE_SQL_DATABASE=${AZURE_SQL_DATABASE}
+      - AZURE_SQL_USERNAME=${AZURE_SQL_USERNAME}
+      - AZURE_SQL_PASSWORD=${AZURE_SQL_PASSWORD}
       - APPINSIGHTS_INSTRUMENTATION_KEY=${APPINSIGHTS_INSTRUMENTATION_KEY}
+      - PYTHONUNBUFFERED=1
     volumes:
       # Mount for SQLite in development (comment out in production with Azure SQL)
       - ./data:/app/data
+      # Mount the existing local SQLite DB so Docker uses the same file
+      - ./tasks.db:/app/tasks.db:rw
     restart: unless-stopped
+    # Resource limits for better scheduling in container orchestrators
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+      replicas: 1
+      # Rolling update configuration
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 5s
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -26,6 +54,8 @@ services:
       start_period: 40s
     networks:
       - app-network
+    labels:
+      com.taskmanager.description: "Task Manager Web Application"
 
   # Prometheus for metrics collection (optional)
   prometheus:
@@ -39,9 +69,20 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     networks:
       - app-network
+    labels:
+      com.taskmanager.description: "Prometheus Metrics Collection"
 
   # Grafana for visualization (optional)
   grafana:
@@ -52,13 +93,24 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=
     volumes:
       - grafana-data:/var/lib/grafana
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
     networks:
       - app-network
     depends_on:
       - prometheus
+    labels:
+      com.taskmanager.description: "Grafana Dashboard and Visualization"
 
 networks:
   app-network:
