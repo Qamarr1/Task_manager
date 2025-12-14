@@ -591,15 +591,9 @@ def toggle_task(task_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Try to get task with status column (Azure SQL) or completed column (SQLite)
-        try:
-            cursor.execute('SELECT id, status FROM tasks WHERE id = ?', (task_id,))
-            row = cursor.fetchone()
-            use_status = True
-        except Exception:
-            cursor.execute('SELECT id, completed FROM tasks WHERE id = ?', (task_id,))
-            row = cursor.fetchone()
-            use_status = False
+        # Get task - try to detect which columns exist
+        cursor.execute('SELECT * FROM tasks WHERE id = ?', (task_id,))
+        row = cursor.fetchone()
 
         if not row:
             flash('Task not found', 'error')
@@ -610,11 +604,25 @@ def toggle_task(task_id):
         columns = [col[0] for col in cursor.description]
         task = row_to_dict(row, columns)
         
-        if use_status:
-            new_status = 'todo' if task.get('status') == 'done' else 'done'
+        has_status = 'status' in columns
+        has_completed = 'completed' in columns
+        
+        # Determine new values based on what exists
+        if has_status:
+            current_status = task.get('status', 'todo')
+            new_status = 'todo' if current_status == 'done' else 'done'
+        
+        if has_completed:
+            current_completed = task.get('completed', 0)
+            new_completed = 0 if current_completed else 1
+        
+        # Update both columns if they exist (for test compatibility)
+        if has_status and has_completed:
+            cursor.execute('UPDATE tasks SET status = ?, completed = ? WHERE id = ?', 
+                         (new_status, new_completed, task_id))
+        elif has_status:
             cursor.execute('UPDATE tasks SET status = ? WHERE id = ?', (new_status, task_id))
-        else:
-            new_completed = 0 if task.get('completed') else 1
+        elif has_completed:
             cursor.execute('UPDATE tasks SET completed = ? WHERE id = ?', (new_completed, task_id))
         conn.commit()
         cursor.close()

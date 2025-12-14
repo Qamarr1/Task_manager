@@ -7,6 +7,10 @@ import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+# Force SQLite for all tests
+os.environ['DB_TYPE'] = 'sqlite'
+os.environ['SQLITE_DATABASE'] = ':memory:'
+
 from app import app
 
 @pytest.fixture

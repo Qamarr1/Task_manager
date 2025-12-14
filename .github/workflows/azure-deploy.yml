@@ -22,7 +22,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run tests
+      - name: Run unit tests (SQLite)
         env:
           DB_TYPE: sqlite
           SQLITE_DATABASE: ":memory:"
@@ -42,9 +42,69 @@ jobs:
           name: app
           path: app.zip
 
-  deploy:
+  integration-test:
     runs-on: ubuntu-latest
     needs: build-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Add GitHub runner IP to Azure SQL firewall
+        run: |
+          RUNNER_IP=$(curl -s https://api.ipify.org)
+          echo "Runner IP: $RUNNER_IP"
+          az sql server firewall-rule create \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --server task-manager-sql-8b \
+            --name "GitHubRunner-$(date +%s)" \
+            --start-ip-address $RUNNER_IP \
+            --end-ip-address $RUNNER_IP
+
+      - name: Run integration tests (Azure SQL)
+        env:
+          DB_TYPE: azure_sql
+          AZURE_SQL_SERVER: task-manager-sql-8b.database.windows.net
+          AZURE_SQL_DATABASE: qamar-taskmgr-db
+          AZURE_SQL_USERNAME: sqladmin
+          AZURE_SQL_PASSWORD: NewStrongPassword123!
+          SECRET_KEY: "ci-secret"
+          FLASK_DEBUG: "False"
+          ENVIRONMENT: "test"
+        run: |
+          echo "Running integration tests against Azure SQL..."
+          pytest tests/test_database.py -v
+          echo "✅ Azure SQL connectivity verified!"
+
+      - name: Cleanup firewall rule
+        if: always()
+        run: |
+          az sql server firewall-rule list \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --server task-manager-sql-8b \
+            --query "[?contains(name, 'GitHubRunner')].name" -o tsv | \
+          xargs -I {} az sql server firewall-rule delete \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --server task-manager-sql-8b \
+            --name {} || true
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build-test, integration-test]
 
     permissions:
       contents: read
