@@ -356,15 +356,20 @@ def change_username():
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,))
-        user = cursor.fetchone()
+        row = cursor.fetchone()
         
-        if not user:
+        if not row:
             conn.close()
             return jsonify({'error': 'User not found'}), 404
         
+        # Get password hash from row
+        columns = [col[0] for col in cursor.description]
+        user_data = row_to_dict(row, columns)
+        stored_password_hash = user_data.get('password_hash')
+        
         # Check if current password is correct
         from werkzeug.security import check_password_hash
-        if not check_password_hash(user['password_hash'] if hasattr(user, '__getitem__') else user[0], current_password):
+        if not check_password_hash(stored_password_hash, current_password):
             conn.close()
             return jsonify({'error': 'Current password is incorrect'}), 401
         
@@ -412,15 +417,20 @@ def change_password():
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,))
-        user = cursor.fetchone()
+        row = cursor.fetchone()
         
-        if not user:
+        if not row:
             conn.close()
             return jsonify({'error': 'User not found'}), 404
         
+        # Get password hash from row
+        columns = [col[0] for col in cursor.description]
+        user_data = row_to_dict(row, columns)
+        stored_password_hash = user_data.get('password_hash')
+        
         # Check if current password is correct
         from werkzeug.security import check_password_hash, generate_password_hash
-        if not check_password_hash(user['password_hash'] if hasattr(user, '__getitem__') else user[0], current_password):
+        if not check_password_hash(stored_password_hash, current_password):
             conn.close()
             return jsonify({'error': 'Current password is incorrect'}), 401
         
