@@ -181,14 +181,16 @@ def create_user(username, email, password):
                 "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
                 (username, email, password_hash)
             )
+            cursor.execute("SELECT SCOPE_IDENTITY() AS user_id")
+            user_id = int(cursor.fetchone()[0])
         else:
             cursor.execute(
                 "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
                 (username, email, password_hash)
             )
+            user_id = cursor.lastrowid
         
         conn.commit()
-        user_id = cursor.lastrowid
         cursor.close()
         conn.close()
         
