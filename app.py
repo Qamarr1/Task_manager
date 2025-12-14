@@ -8,6 +8,14 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from config import config, Config
 from database import get_db_connection, create_user, verify_user, get_user_by_id, get_user_by_username, get_user_by_email
 
+# Application Insights (optional)
+try:
+    from opencensus.ext.azure.log_exporter import AzureLogHandler
+    from opencensus.ext.flask.flask_middleware import FlaskMiddleware
+    APPINSIGHTS_AVAILABLE = True
+except ImportError:
+    APPINSIGHTS_AVAILABLE = False
+
 # Prometheus metrics (optional)
 try:
     from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
@@ -37,6 +45,21 @@ app = Flask(__name__)
 env = Config.ENVIRONMENT
 app.config.from_object(config.get(env, config['default']))
 app.secret_key = app.config['SECRET_KEY']
+
+# Configure Application Insights if available
+if APPINSIGHTS_AVAILABLE and Config.APPINSIGHTS_INSTRUMENTATION_KEY:
+    try:
+        # Add Azure Log Handler for logging
+        logger.addHandler(AzureLogHandler(
+            connection_string=f"InstrumentationKey={Config.APPINSIGHTS_INSTRUMENTATION_KEY}"
+        ))
+        # Add Flask middleware for request tracking
+        FlaskMiddleware(app, exporter=AzureLogHandler(
+            connection_string=f"InstrumentationKey={Config.APPINSIGHTS_INSTRUMENTATION_KEY}"
+        ))
+        logger.info("Application Insights configured successfully")
+    except Exception as e:
+        logger.warning(f"Failed to configure Application Insights: {e}")
 
 
 def ensure_schema_columns():
