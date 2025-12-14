@@ -1,139 +1,72 @@
-name: Deploy to Azure Web App
+name: Build, Test, Deploy to Azure Web App
 
 on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
-env:
-  PYTHON_VERSION: '3.11'
-
 jobs:
-  build:
+  build-test:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: 🔄 Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: 🐍 Set up Python ${{ env.PYTHON_VERSION }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-    - name: 📦 Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-    - name: 🧪 Run tests with coverage
-      run: |
-        pip install pytest pytest-cov
-        pytest --cov=app --cov=config --cov=database --cov-report=term --cov-report=html --cov-fail-under=70 tests/ -v
-    
-    - name: 📊 Upload coverage report
-      uses: actions/upload-artifact@v4
-      with:
-        name: coverage-report
-        path: htmlcov/
-    
-    - name: 🐳 Build Docker image
-      run: |
-        docker build -t task-manager:${{ github.sha }} -t task-manager:latest .
-    
-    - name: 💾 Save Docker image
-      run: |
-        docker save task-manager:latest | gzip > task-manager-docker.tar.gz
-    
-    - name: 📤 Upload Docker image
-      uses: actions/upload-artifact@v4
-      with:
-        name: docker-image
-        path: task-manager-docker.tar.gz
+      - name: Run tests
+        env:
+          DB_TYPE: sqlite
+          SQLITE_DATABASE: ":memory:"
+          SECRET_KEY: "ci-secret"
+          FLASK_DEBUG: "False"
+          ENVIRONMENT: "test"
+        run: |
+          pytest -q
 
-    - name: 📦 Create deployment package
-      run: |
-        mkdir -p deployment
-        cp -r app.py config.py database.py requirements.txt gunicorn_config.py web.config deployment/
-        cp -r static templates deployment/
-        cd deployment
-        zip -r ../deploy.zip .
+      - name: Create deploy package
+        run: |
+          zip -r app.zip . -x "*.git*" -x "*.venv*" -x ".env" -x "__pycache__/*" -x "*.pytest_cache*"
 
-    - name: 📤 Upload artifact for deployment
-      uses: actions/upload-artifact@v4
-      with:
-        name: python-app
-        path: deploy.zip
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app
+          path: app.zip
 
   deploy:
     runs-on: ubuntu-latest
-    needs: build
-    environment:
-      name: 'Production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+    needs: build-test
 
     steps:
-    - name: 📥 Download artifact from build job
-      uses: actions/download-artifact@v4
-      with:
-        name: python-app
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app
 
-    - name: 🔐 Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-        enable-AzPSSession: false
+      #  Login using  Service Principal
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_APP_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
 
-    - name: 🚀 Deploy to Azure Web App
-      id: deploy-to-webapp
-      uses: azure/webapps-deploy@v2
-      with:
-        app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
-        package: deploy.zip
-    
-    - name: 🔧 Set environment variables with Azure CLI
-      run: |
-        az webapp config appsettings set \
-          --name ${{ secrets.AZURE_WEBAPP_NAME }} \
-          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-          --settings \
-            FLASK_ENV="production" \
-            DB_TYPE="azure_sql" \
-            AZURE_SQL_CONNECTION_STRING="${{ secrets.AZURE_SQL_CONNECTION_STRING }}" \
-            APPINSIGHTS_INSTRUMENTATIONKEY="${{ secrets.APPINSIGHTS_INSTRUMENTATIONKEY }}" \
-            SCM_DO_BUILD_DURING_DEPLOYMENT="true"
+      #  Deploy
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: qamar-taskmgr-web
+          package: app.zip
 
-    - name: 🔧 Set startup command
-      run: |
-        az webapp config set \
-          --name ${{ secrets.AZURE_WEBAPP_NAME }} \
-          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-          --startup-file "gunicorn --bind=0.0.0.0 --timeout 600 app:app"
 
-    - name: 🔄 Restart Web App
-      run: |
-        az webapp restart \
-          --name ${{ secrets.AZURE_WEBAPP_NAME }} \
-          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }}
-
-    - name: 🏥 Health Check
-      run: |
-        echo "Waiting for app to start..."
-        sleep 45
-        response=$(curl -s -o /dev/null -w "%{http_code}" https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net/health || echo "000")
-        echo "Health check response: $response"
-        if [ "$response" = "200" ]; then
-          echo "✅ App is healthy!"
-        else
-          echo "⚠️ App returned status code: $response"
-          echo "App may need more time to start. Check logs in Azure Portal."
-        fi
-
-    - name: 🎉 Deployment Complete
-      run: |
-        echo "🚀 Deployment successful!"
-        echo "🌐 App URL: https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net"
