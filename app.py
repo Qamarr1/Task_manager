@@ -1,6 +1,6 @@
 import logging
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, Response, session, current_app
@@ -116,6 +116,12 @@ def ensure_schema_columns():
             pass
 
 
+@app.context_processor
+def inject_config():
+    """Make config available to all templates."""
+    return {'config': app.config}
+
+
 def parse_datetime_value(value):
     """Return datetime from DB value or None."""
     if value is None:
@@ -199,7 +205,8 @@ def fetch_tasks():
 
     tasks = []
     priority_order = {'High': 3, 'Medium': 2, 'Low': 1}
-    now = datetime.now()
+    # Use UTC+1 timezone (Western Europe Time) to match user's local time
+    now = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=1)
     for row in rows:
         raw = row_to_dict(row, column_names)
         created_at = parse_datetime_value(raw.get('created_at'))
