@@ -315,6 +315,7 @@ def signup():
         if user_id:
             session['user_id'] = user_id
             session['username'] = username
+            session['email'] = email
             flash(f'Welcome, {username}! Your account has been created.', 'success')
             logger.info(f"New user registered: {username}")
             return redirect(url_for('home'))
