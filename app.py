@@ -145,17 +145,31 @@ def fetch_tasks():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Check if user_id column exists, if not skip filtering by user
+    # Try to fetch tasks with the appropriate schema
+    # Azure SQL uses 'status' column, SQLite might use 'completed' column
     try:
+        # Try Azure SQL schema first (with status column)
         cursor.execute(
-            "SELECT id, title, description, completed, created_at, due_date, priority, category, status FROM tasks WHERE user_id = ? ORDER BY created_at DESC",
+            "SELECT id, title, description, created_at, due_date, priority, category, status FROM tasks WHERE user_id = ? ORDER BY created_at DESC",
             (user_id,)
         )
     except Exception:
-        # Fallback for old schema without user_id
-        cursor.execute(
-            "SELECT id, title, description, completed, created_at, due_date, priority, category, COALESCE(status, 'todo') as status FROM tasks ORDER BY created_at DESC"
-        )
+        try:
+            # Try SQLite schema with completed column
+            cursor.execute(
+                "SELECT id, title, description, completed, created_at, due_date, priority, category FROM tasks WHERE user_id = ? ORDER BY created_at DESC",
+                (user_id,)
+            )
+        except Exception:
+            # Fallback without user_id filtering
+            try:
+                cursor.execute(
+                    "SELECT id, title, description, created_at, due_date, priority, category, status FROM tasks ORDER BY created_at DESC"
+                )
+            except Exception:
+                cursor.execute(
+                    "SELECT id, title, description, completed, created_at, due_date, priority, category FROM tasks ORDER BY created_at DESC"
+                )
     
     rows = cursor.fetchall()
     column_names = [col[0] for col in cursor.description] if cursor.description else []
@@ -168,18 +182,26 @@ def fetch_tasks():
         created_at = parse_datetime_value(raw.get('created_at'))
         due_date = parse_datetime_value(raw.get('due_date'))
 
+        # Handle both schema types: Azure SQL (status) and SQLite (completed)
+        if 'status' in raw:
+            status = raw.get('status', 'todo')
+            completed = status == 'done'
+        else:
+            completed = bool(raw.get('completed', 0))
+            status = 'done' if completed else 'todo'
+        
         task = {
             'id': raw.get('id'),
             'title': raw.get('title', ''),
             'description': raw.get('description', ''),
-            'completed': bool(raw.get('completed')),
+            'completed': completed,
             'created_at': created_at,
             'due_date': due_date,
             'priority': raw.get('priority', 'Medium'),
             'category': raw.get('category', 'General'),
-            'status': raw.get('status', 'todo')
+            'status': status
         }
-        task['is_overdue'] = (not task['completed']) and task['due_date'] is not None and task['due_date'] < now
+        task['is_overdue'] = not completed and task['due_date'] is not None and task['due_date'] < now
         task['is_due_today'] = (
             task['due_date'] is not None
             and task['due_date'].date() == now.date()
@@ -568,8 +590,16 @@ def toggle_task(task_id):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('SELECT id, completed FROM tasks WHERE id = ?', (task_id,))
-        row = cursor.fetchone()
+        
+        # Try to get task with status column (Azure SQL) or completed column (SQLite)
+        try:
+            cursor.execute('SELECT id, status FROM tasks WHERE id = ?', (task_id,))
+            row = cursor.fetchone()
+            use_status = True
+        except Exception:
+            cursor.execute('SELECT id, completed FROM tasks WHERE id = ?', (task_id,))
+            row = cursor.fetchone()
+            use_status = False
 
         if not row:
             flash('Task not found', 'error')
@@ -579,9 +609,13 @@ def toggle_task(task_id):
 
         columns = [col[0] for col in cursor.description]
         task = row_to_dict(row, columns)
-        new_status = 0 if task.get('completed') else 1
-
-        cursor.execute('UPDATE tasks SET completed = ? WHERE id = ?', (new_status, task_id))
+        
+        if use_status:
+            new_status = 'todo' if task.get('status') == 'done' else 'done'
+            cursor.execute('UPDATE tasks SET status = ? WHERE id = ?', (new_status, task_id))
+        else:
+            new_completed = 0 if task.get('completed') else 1
+            cursor.execute('UPDATE tasks SET completed = ? WHERE id = ?', (new_completed, task_id))
         conn.commit()
         cursor.close()
         conn.close()
