@@ -48,6 +48,7 @@ jobs:
 
     permissions:
       contents: read
+      id-token: write
 
     steps:
       - name: Download artifact
@@ -55,17 +56,19 @@ jobs:
         with:
           name: app
 
-      - name: Azure Login (service principal)
+      - name: Unzip artifact
+        run: unzip app.zip
+
+      - name: Azure Login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy zip to Web App
-        run: |
-          az webapp deployment source config-zip \
-            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
-            --name "qamar-taskmgr-web" \
-            --src "app.zip"
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: 'qamar-taskmgr-web'
+          package: .
 
 
 
