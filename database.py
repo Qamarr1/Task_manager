@@ -178,11 +178,13 @@ def create_user(username, email, password):
         
         if Config.DB_TYPE == 'azure_sql':
             cursor.execute(
-                "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
+                "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?); SELECT SCOPE_IDENTITY() AS user_id",
                 (username, email, password_hash)
             )
-            cursor.execute("SELECT SCOPE_IDENTITY() AS user_id")
-            user_id = int(cursor.fetchone()[0])
+            # Move to the result set with the SCOPE_IDENTITY() value
+            cursor.nextset()
+            result = cursor.fetchone()
+            user_id = int(result[0]) if result and result[0] is not None else None
         else:
             cursor.execute(
                 "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
